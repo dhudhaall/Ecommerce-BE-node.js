@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model OtpCode {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  code      String
+  expiresAt DateTime
+  User      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "OtpCode_userId_fkey")
+}
+
+model User {
+  id         Int       @id @default(autoincrement())
+  name       String
+  email      String    @unique
+  password   String
+  isVerified Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  OtpCode    OtpCode[]
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String
+  products Product[]
+}
+
+model Product {
+  id          Int            @id @default(autoincrement())
+  name        String
+  description String
+  price       Float
+  categoryId  Int
+  isActive    Boolean        @default(true)
+  addons      Addon[]
+  category    Category       @relation(fields: [categoryId], references: [id])
+  images      ProductImage[]
+
+  @@index([categoryId], map: "Product_categoryId_fkey")
+}
+
+model Addon {
+  id        Int     @id @default(autoincrement())
+  name      String
+  price     Float
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([productId], map: "Addon_productId_fkey")
+}
+
+model Cart {
+  id    Int        @id @default(autoincrement())
+  items CartItem[]
+}
+
+model CartItem {
+  id        Int  @id @default(autoincrement())
+  productId Int
+  quantity  Int
+  cartId    Int
+  cart      Cart @relation(fields: [cartId], references: [id])
+
+  @@index([cartId], map: "CartItem_cartId_fkey")
+}
+
+model Order {
+  id                       Int         @id @default(autoincrement())
+  email                    String?
+  phone                    String
+  city                     String
+  country                  String?
+  createdAt                DateTime    @default(now())
+  customerName             String
+  floor_unit               String?
+  notes                    String?
+  orderStatus              String      @default("PENDING")
+  paymentStatus            String      @default("PENDING")
+  postalCode               String
+  state                    String?
+  street_name_house_number String
+  totalAmount              Float
+  payment_method           String
+  items                    OrderItem[]
+}
+
+model OrderItem {
+  id        Int   @id @default(autoincrement())
+  productId Int
+  quantity  Int
+  orderId   Int
+  order     Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId], map: "OrderItem_orderId_fkey")
+}
+
+model ProductImage {
+  id        Int      @id @default(autoincrement())
+  url       String
+  alt       String?
+  productId Int
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId], map: "ProductImage_productId_fkey")
+}
