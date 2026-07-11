@@ -2,7 +2,7 @@ import prisma from '../../config/db.js';
 
 export const getProducts = () => {
   return prisma.product.findMany({
-     include: { addons: true, images: true },
+     include: { addons: true, images: true, sizes: true },
   });
 };
 
@@ -17,7 +17,7 @@ export const getProductsByCategoryId = async (req, res) => {
 
   const products = await prisma.product.findMany({
     where: { categoryId: Number(categoryId) },
-    include: { addons: true },
+    include: { addons: true, sizes: true, images: true},
   });
 
   res.json(products);

@@ -70,7 +70,7 @@ export const addProduct = async (req, res) => {
     // ✅ FIX 2: Always array for images
     const imagePaths = req.files?.length
       ? req.files.map(file => ({
-          url: `/uploads/${file.filename}`
+          url: path.join(process.env.HOME, `public_html/uploads/${file.filename}`)
         }))
       : [];
 

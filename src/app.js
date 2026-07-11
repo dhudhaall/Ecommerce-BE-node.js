@@ -4,9 +4,10 @@ import categoryRoutes from './modules/categories/catgory.routes.js';
 import productsRoutes from './modules/products/products.routes.js';
 import addOnsRoutes from './modules/addOns/addOns.routes.js';
 import checkoutRoutes from './modules/checkout/checkout.routes.js';
+import sizeRoutes from './modules/sizes/sizes.routes.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { swaggerUi, swaggerSpec } from './config/swagger.js';
-
+import path from 'path';
 const app = express();
 
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/addons', addOnsRoutes);
 app.use('/api/checkout', checkoutRoutes);
+app.use('/api/sizes', sizeRoutes);
 app.use(errorHandler);
 
 

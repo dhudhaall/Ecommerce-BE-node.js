@@ -1,9 +1,13 @@
 import * as categoryService from './category.service.js';
+import { attachProductImagesBaseUrl } from '../../utils/helpers.js';
 
 export const getCategories = async (req, res, next) => {
   try {
     const categories = await categoryService.getCategories();
-    res.json(categories);
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+    const result = attachProductImagesBaseUrl(categories, baseUrl);
+    res.json(result);
   } catch (err) {
     next(err);
   }

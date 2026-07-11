@@ -43,7 +43,7 @@ model Product {
   addons      Addon[]
   category    Category       @relation(fields: [categoryId], references: [id])
   images      ProductImage[]
-
+  sizes       Size[] 
   @@index([categoryId], map: "Product_categoryId_fkey")
 }
 
@@ -111,4 +111,13 @@ model ProductImage {
   product   Product  @relation(fields: [productId], references: [id])
 
   @@index([productId], map: "ProductImage_productId_fkey")
+}
+
+model Size {
+  id        Int      @id @default(autoincrement())
+  name      String   // Small, Medium, Large
+  price     Float    // price for this size
+
+  product   Product  @relation(fields: [productId], references: [id])
+  productId Int
 }
