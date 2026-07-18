@@ -5,7 +5,8 @@ export const getCategories = () => {
      include: { products: {
         include: {
           addons: true,      
-          images: true     
+          images: true,
+          sizes:true    
         } }}
   });
 };

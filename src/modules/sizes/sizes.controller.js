@@ -1,4 +1,4 @@
-import { prisma } from "../../config/prisma.js";
+import prisma from '../../config/db.js';
 
 // ✅ CREATE SIZE
 export const addSize = async (req, res) => {

@@ -7,9 +7,18 @@ import checkoutRoutes from './modules/checkout/checkout.routes.js';
 import sizeRoutes from './modules/sizes/sizes.routes.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { swaggerUi, swaggerSpec } from './config/swagger.js';
+import { stripeWebhook } from "./modules/checkout/stripe.webhook.js";
 import path from 'path';
+import cors from "cors";
 const app = express();
 
+app.post(
+  "/api/checkout/stripe-webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhook
+);
+
+app.use(cors());
 app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/uploads", express.static("uploads"));
