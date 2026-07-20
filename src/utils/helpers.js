@@ -12,3 +12,13 @@ export const attachProductImagesBaseUrl = (data, baseUrl) => {
     })):[],
   }));
 };
+
+export const matchZone = (zones, typedCode) =>{
+  const code = (typedCode || "").trim();
+  if (code.length < 3) return null;
+  return zones.find(
+    (z) =>
+      z.mainPostalCode === code ||
+      z.coveredPrefixes.some((p) => code.startsWith(p))
+  ) ?? null;
+}

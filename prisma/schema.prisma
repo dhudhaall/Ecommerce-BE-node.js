@@ -130,3 +130,14 @@ model Size {
   product   Product  @relation(fields: [productId], references: [id])
   productId Int
 }
+
+model DeliveryZone {
+  id              Int     @id @default(autoincrement())
+  mainPostalCode  String  @unique          // "54660"
+  areaName        String                   // "Gulberg III"
+  city            String
+  deliveryFee     Float   @default(3)      // per-area fee ✓
+  minOrder        Float   @default(0)
+  coveredPrefixes Json                     // ["5466", "5467"] — or full codes
+  active          Boolean @default(true)
+}
