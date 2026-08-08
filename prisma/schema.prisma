@@ -73,42 +73,68 @@ model CartItem {
 }
 
 model Order {
-  id            Int       @id @default(autoincrement())
-  customerName  String
-  email         String
-  phone         String
+  id             Int      @id @default(autoincrement())
 
-  deliveryType  String
-  address       String?
-  city          String?
-  postalCode    String?
+  // 👤 Customer Info
+  firstName      String
+  lastName       String
+  email          String
+  phone          String
 
-  paymentMethod String
-  paymentStatus String   @default("pending") // pending, paid, failed
+  // 🚚 Delivery
+  deliveryType   String   // "delivery" | "pickup"
+  address        String?
+  city           String?
+  postalCode     String?
 
-  totalAmount   Float
-  currency      String
+  // 📝 Extra
+  notes          String?  // instructions for kitchen
+
+  // 💳 Payment
+  paymentMethod  String   // "cash" | "stripe"
+  paymentStatus  String   @default("pending") // pending, paid, failed
 
   stripeIntentId String?
-  paypalOrderId  String?
 
-  items         OrderItem[]
+  // 📊 Pricing
+  subtotal       Float
+  deliveryFee    Float    @default(0)
+  totalAmount    Float
+  currency       String   @default("eur")
 
-  createdAt     DateTime @default(now())
+  // 📦 Status flow
+  status         String   @default("pending")
+  // pending → confirmed → processing → out_for_delivery → delivered → cancelled
+
+  // 🧾 Items
+  items          OrderItem[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model OrderItem {
-  id        Int    @id @default(autoincrement())
-  orderId   Int
-  productId Int
-  quantity  Int
+  id          Int     @id @default(autoincrement())
+  orderId     Int
 
-  sizeId    Int?
-  addonIds  Json
+  productId   Int
+  name        String   // snapshot of product name
 
-  price     Float
+  quantity    Int
 
-  order     Order @relation(fields: [orderId], references: [id])
+  sizeId      Int?
+  sizeName    String?
+  sizePrice   Float?
+
+  addonIds    Json     // [1,2,3]
+  addonNames  Json     // ["Cheese", "Chicken"]
+  addonTotal  Float    @default(0)
+
+  itemTotal   Float    // final total per item
+
+  notes       String?  // e.g. "no onions"
+
+  order       Order @relation(fields: [orderId], references: [id])
 }
 
 model ProductImage {

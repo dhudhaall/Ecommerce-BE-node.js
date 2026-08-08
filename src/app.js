@@ -6,6 +6,7 @@ import addOnsRoutes from './modules/addOns/addOns.routes.js';
 import checkoutRoutes from './modules/checkout/checkout.routes.js';
 import zonesRoutes from './modules/zones/zones.routes.js';
 import sizeRoutes from './modules/sizes/sizes.routes.js';
+import adminRoutes from './modules/admin/admin.routes.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { swaggerUi, swaggerSpec } from './config/swagger.js';
 import { stripeWebhook } from "./modules/checkout/stripe.webhook.js";
@@ -34,6 +35,7 @@ app.use('/api/addons', addOnsRoutes);
 app.use('/api/checkout', checkoutRoutes);
 app.use('/api/sizes', sizeRoutes);
 app.use('/api/delivery-zones', zonesRoutes);
+app.use("/api/admin", adminRoutes);
 app.use(errorHandler);
 
 
