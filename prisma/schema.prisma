@@ -167,3 +167,14 @@ model DeliveryZone {
   coveredPrefixes Json                     // ["5466", "5467"] — or full codes
   active          Boolean @default(true)
 }
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String   // bcrypt hash — never the plain password
+  role      String   @default("admin") // "admin" | "superadmin" (for later)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
