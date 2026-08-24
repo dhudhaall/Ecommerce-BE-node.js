@@ -16,3 +16,8 @@ source ~/nodevenv/ecommerce-nodejs/*/bin/activate
 
 npx prisma migrate deploy
 npx prisma db push
+
+```
+#migrations
+DATABASE_URL="mysql://beyoflrw_ecommerce:qwertyuiop1234567890A@localhost:3306/beyoflrw_ecommerce" npx prisma migrate deploy
+```
