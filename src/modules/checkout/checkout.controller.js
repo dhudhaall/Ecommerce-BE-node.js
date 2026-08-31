@@ -43,7 +43,7 @@ export const getCartSummary = async (req, res) => {
           id: product.id,
           name: product.name,
           price: product.price,
-          image: product.images?.[0]?.url || null,
+          image: `${process.env.BASE_URL}${product?.images?.[0]?.url}` || null,
         },
         quantity,
         size: selectedSize

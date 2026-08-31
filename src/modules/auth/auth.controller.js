@@ -49,7 +49,7 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     console.error("ADMIN LOGIN ERROR:", error);
-    return res.status(500).json({ error: "Login failed." });
+    return res.status(500).json({ error: error });
   }
 };
 

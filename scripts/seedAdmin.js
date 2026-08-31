@@ -10,7 +10,7 @@ import prisma from "../src/config/db.js"; // adjust path to your db config
 import { createAdmin } from "../src/modules/auth/auth.controller.js"; // adjust path
 
 const run = async () => {
-  const email = "farhan@conamorepizzaria.de";
+  const email = "umarahmaddh@gmail.com";
   const password = "qwe123@A"; // change immediately after first login
 
   const existing = await prisma.admin.findUnique({ where: { email } });
@@ -20,7 +20,7 @@ const run = async () => {
   }
 
   const admin = await createAdmin({
-    name: "Store Admin",
+    name: "Umar ahmad",
     email,
     password,
     role: "admin",
