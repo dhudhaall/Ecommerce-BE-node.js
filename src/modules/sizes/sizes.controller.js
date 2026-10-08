@@ -1,50 +1,54 @@
-import prisma from '../../config/db.js';
+import prisma from "../../config/db.js";
 
 // ✅ CREATE SIZE
-export const addSize = async (req, res) => {
+export const addSize = async (req, res, next) => {
   try {
     const { name, price, productId } = req.body;
 
     const size = await prisma.size.create({
       data: {
-        name,
-        price: parseFloat(price),
+        name: name?.trim(),
+        price: parseFloat(price) || 0,
         productId: parseInt(productId),
+      },
+      include: {
+        product: { select: { id: true, name: true } },
       },
     });
 
-    res.json(size);
+    res.status(201).json(size);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to create size" });
+    next(err);
   }
 };
 
 // ✅ GET ALL SIZES
-export const getSizes = async (req, res) => {
+export const getSizes = async (req, res, next) => {
   try {
+    const where = req.query.productId ? { productId: Number(req.query.productId) } : {};
     const sizes = await prisma.size.findMany({
+      where,
       include: {
-        product: true, // optional
+        product: { select: { id: true, name: true } },
       },
+      orderBy: { id: "desc" },
     });
 
     res.json(sizes);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch sizes" });
+    next(err);
   }
 };
 
 // ✅ GET SIZE BY ID
-export const getSizeById = async (req, res) => {
+export const getSizeById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
     const size = await prisma.size.findUnique({
       where: { id: parseInt(id) },
       include: {
-        product: true,
+        product: { select: { id: true, name: true } },
       },
     });
 
@@ -54,34 +58,36 @@ export const getSizeById = async (req, res) => {
 
     res.json(size);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch size" });
+    next(err);
   }
 };
 
 // ✅ UPDATE SIZE
-export const updateSize = async (req, res) => {
+export const updateSize = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, price } = req.body;
+    const { name, price, productId } = req.body;
 
     const size = await prisma.size.update({
       where: { id: parseInt(id) },
       data: {
-        name,
-        price: price ? parseFloat(price) : undefined,
+        name: name !== undefined ? name.trim() : undefined,
+        price: price !== undefined ? parseFloat(price) : undefined,
+        productId: productId !== undefined ? parseInt(productId) : undefined,
+      },
+      include: {
+        product: { select: { id: true, name: true } },
       },
     });
 
     res.json(size);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to update size" });
+    next(err);
   }
 };
 
 // ✅ DELETE SIZE
-export const deleteSize = async (req, res) => {
+export const deleteSize = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -91,7 +97,6 @@ export const deleteSize = async (req, res) => {
 
     res.json({ message: "Size deleted successfully" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to delete size" });
+    next(err);
   }
 };

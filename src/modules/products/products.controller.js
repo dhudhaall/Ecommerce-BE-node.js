@@ -1,114 +1,65 @@
-import * as productService from './products.service.js';
-import prisma from '../../config/db.js';
+import * as productService from "./products.service.js";
 
-export const getProducts = async (req, res, next)=>{
-
-  try{
-    const products = await productService.getProducts();
+export const getProducts = async (req, res, next) => {
+  try {
+    const products = await productService.getProducts(req.query.categoryId);
     res.json(products);
-  }catch(err){
+  } catch (err) {
     next(err);
   }
-}
-
+};
 
 export const getProductById = async (req, res, next) => {
   try {
     const product = await productService.getProductById(Number(req.params.id));
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
     res.json(product);
   } catch (err) {
     next(err);
   }
 };
 
+export const addProduct = async (req, res, next) => {
+  try {
+    const body = { ...req.body };
 
-// export const addProduct = async (req, res, next) => {
-//   try {
-//     const product = await productService.addProduct(req.body);
-//     res.json(product);
-//   } catch (err) {
-//     next(err);
-//   }
-// };
+    // If files uploaded via multer
+    if (req.files && req.files.length > 0) {
+      body.images = req.files.map((file) => ({
+        url: `/uploads/${file.filename}`,
+      }));
+    }
+
+    const product = await productService.addProduct(body);
+    res.status(201).json(product);
+  } catch (err) {
+    next(err);
+  }
+};
 
 export const updateProduct = async (req, res, next) => {
   try {
-    const product = await productService.updateProduct(Number(req.params.id), req.body);
+    const body = { ...req.body };
+    if (req.files && req.files.length > 0) {
+      body.images = req.files.map((file) => ({
+        url: `/uploads/${file.filename}`,
+      }));
+    }
+
+    const product = await productService.updateProduct(Number(req.params.id), body);
     res.json(product);
   } catch (err) {
     next(err);
   }
 };
-
 
 export const deleteProduct = async (req, res, next) => {
   try {
-    const products = await productService.deleteProduct(req.params.id);
-    res.json(products);
+    await productService.deleteProduct(Number(req.params.id));
+    res.json({ message: "Product deleted successfully." });
   } catch (err) {
     next(err);
   }
 };
-
-
-export const addProduct = async (req, res) => {
-  try {
-
-    const { name, description, price, categoryId, addonIds } = req.body;
-
-    // ✅ FIX 1: Safe addonIds parsing
-    let parsedAddonIds = [];
-
-    if (addonIds) {
-      if (Array.isArray(addonIds)) {
-        parsedAddonIds = addonIds.map(id => Number(id));
-      } else if (typeof addonIds === "string") {
-        parsedAddonIds = addonIds.split(",").map(id => Number(id));
-      }
-    }
-
-    // ✅ FIX 2: Always array for images
-    const imagePaths = req.files?.length
-      ? req.files.map(file => ({
-          url: path.join(process.env.HOME, `public_html/uploads/${file.filename}`)
-        }))
-      : [];
-
-    const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        price: parseFloat(price),
-        categoryId: parseInt(categoryId),
-
-        // ✅ only add if exists
-        images: imagePaths.length
-          ? { create: imagePaths }
-          : undefined,
-
-        addons: parsedAddonIds.length
-          ? {
-              connect: parsedAddonIds.map(id => ({ id }))
-            }
-          : undefined
-      },
-      include: {
-        images: true,
-        addons: true
-      }
-    });
-
-    res.json(product);
-
-  } catch (err) {
-    console.error("FULL ERROR:", err); // ✅ IMPORTANT
-
-    res.status(500).json({
-      error: err.message,   // 👈 show real error
-      stack: err.stack      // optional (dev only)
-    });
-  }
-};
-
-
-

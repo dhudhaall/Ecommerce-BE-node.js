@@ -1,24 +1,57 @@
-import prisma from '../../config/db.js';
+import prisma from "../../config/db.js";
 
-export const getAddsonList = () => {
-  return prisma.addon.findMany();
+export const getAddsonList = (productId) => {
+  const where = productId ? { productId: Number(productId) } : {};
+  return prisma.addon.findMany({
+    where,
+    include: {
+      product: { select: { id: true, name: true } },
+    },
+    orderBy: { id: "desc" },
+  });
 };
 
 export const getAddOnById = (id) => {
   return prisma.addon.findUnique({
-    where: { id },
+    where: { id: Number(id) },
+    include: {
+      product: { select: { id: true, name: true } },
+    },
   });
 };
 
-
 export const addAddOn = async (data) => {
-  return prisma.addon.create({ data });
-}
+  const { name, price, productId } = data;
+  return prisma.addon.create({
+    data: {
+      name: name?.trim(),
+      price: parseFloat(price) || 0,
+      productId: Number(productId),
+    },
+    include: {
+      product: { select: { id: true, name: true } },
+    },
+  });
+};
 
 export const updateAddon = async (id, data) => {
-  return prisma.addon.update({where:{id}, data });
-}
+  const { name, price, productId } = data;
+  const updateData = {};
+  if (name !== undefined) updateData.name = name.trim();
+  if (price !== undefined) updateData.price = parseFloat(price);
+  if (productId !== undefined) updateData.productId = Number(productId);
+
+  return prisma.addon.update({
+    where: { id: Number(id) },
+    data: updateData,
+    include: {
+      product: { select: { id: true, name: true } },
+    },
+  });
+};
 
 export const deleteAddon = async (id) => {
-  return prisma.addon.delete( {where: { id }});
-}
+  return prisma.addon.delete({
+    where: { id: Number(id) },
+  });
+};

@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DB_HOST")
+  url      = env("DATABASE_URL")
 }
 
 model OtpCode {
@@ -40,10 +40,12 @@ model Product {
   price       Float
   categoryId  Int
   isActive    Boolean        @default(true)
-  addons      Addon[]
   category    Category       @relation(fields: [categoryId], references: [id])
   images      ProductImage[]
-  sizes       Size[] 
+
+  addons      Addon[]
+  sizes       Size[]
+
   @@index([categoryId], map: "Product_categoryId_fkey")
 }
 
@@ -52,9 +54,19 @@ model Addon {
   name      String
   price     Float
   productId Int
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId], map: "Addon_productId_fkey")
+}
+
+model Size {
+  id        Int      @id @default(autoincrement())
+  name      String   // Small, Medium, Large
+  price     Float    // price for this size
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId], map: "Size_productId_fkey")
 }
 
 model Cart {
@@ -143,18 +155,9 @@ model ProductImage {
   alt       String?
   productId Int
   createdAt DateTime @default(now())
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId], map: "ProductImage_productId_fkey")
-}
-
-model Size {
-  id        Int      @id @default(autoincrement())
-  name      String   // Small, Medium, Large
-  price     Float    // price for this size
-
-  product   Product  @relation(fields: [productId], references: [id])
-  productId Int
 }
 
 model DeliveryZone {
