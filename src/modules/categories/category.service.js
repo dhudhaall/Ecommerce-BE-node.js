@@ -17,7 +17,12 @@ export const getCategories = () => {
 };
 
 export const addCategory = (data) => {
-  return prisma.category.create({ data });
+  return prisma.category.create({
+    data: {
+      name: data.name?.trim(),
+      image: data.image || null,
+    },
+  });
 };
 
 export const deleteCategory = (id) => {
@@ -25,5 +30,13 @@ export const deleteCategory = (id) => {
 };
 
 export const updateCategory = (id, data) => {
-  return prisma.category.update({ where: { id: Number(id) }, data });
+  const updateData = {};
+  if (data.name !== undefined) updateData.name = data.name.trim();
+  if (data.image !== undefined) updateData.image = data.image;
+
+  return prisma.category.update({
+    where: { id: Number(id) },
+    data: updateData,
+  });
 };
+

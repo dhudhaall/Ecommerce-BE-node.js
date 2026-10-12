@@ -1,5 +1,6 @@
 import express from "express";
-import { getOrders, getOrderById, updateOrderStatus } from "./orders/orders.controller.js";
+import { getOrders, getOrderById, updateOrderStatus, streamOrders } from "./orders/orders.controller.js";
+import { getSalesStats } from "./sales/sales.controller.js";
 import { login, getMe, createAdmin } from "../auth/auth.controller.js";
 import { requireAdmin } from "../../middlewares/auth.middleware.js";
 import * as menuController from "./menu/menu.controller.js";
@@ -7,17 +8,19 @@ import { upload } from "../../utils/multer-config.js";
 
 const router = express.Router();
 
-/* ---------------- Auth & Orders ---------------- */
+/* ---------------- Auth & Orders & Sales ---------------- */
 router.post("/login", login);
 router.get("/me", requireAdmin, getMe);
+router.get("/orders/stream", requireAdmin, streamOrders);
 router.get("/orders", requireAdmin, getOrders);
 router.get("/orders/:id", requireAdmin, getOrderById);
 router.patch("/orders/:id/status", requireAdmin, updateOrderStatus);
+router.get("/sales", requireAdmin, getSalesStats);
 
 /* ---------------- Menu: Categories ---------------- */
 router.get("/categories", requireAdmin, menuController.getCategories);
-router.post("/categories", requireAdmin, menuController.createCategory);
-router.put("/categories/:id", requireAdmin, menuController.updateCategory);
+router.post("/categories", requireAdmin, upload.single("image"), menuController.createCategory);
+router.put("/categories/:id", requireAdmin, upload.single("image"), menuController.updateCategory);
 router.delete("/categories/:id", requireAdmin, menuController.deleteCategory);
 
 /* ---------------- Menu: Products ---------------- */

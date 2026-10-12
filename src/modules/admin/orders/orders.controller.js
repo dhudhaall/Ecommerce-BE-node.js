@@ -1,6 +1,7 @@
 
 import { getOrdersService } from "./orders.services.js";
 import prisma from "../../../config/db.js";
+import { orderEmitter, ORDER_EVENTS, broadcastOrderStatus } from "./orders.events.js";
 
 export const getOrders = async (req, res) => {
   try {
@@ -126,9 +127,50 @@ export const updateOrderStatus = async (req, res) => {
     });
     if (result.count === 0) return res.status(404).json({ error: "Order not found." });
 
+    broadcastOrderStatus({ id, status });
+
     return res.json({ success: true, id, status });
   } catch (error) {
     console.error("UPDATE STATUS ERROR:", error);
     return res.status(500).json({ error: "Failed to update status." });
   }
+};
+
+/* ============================================================
+   GET /admin/orders/stream
+   Server-Sent Events (SSE) stream for real-time order alerts.
+   Eliminates the need for 30-second client polling.
+   ============================================================ */
+
+export const streamOrders = (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+
+  // Send initial connection event
+  res.write(`data: ${JSON.stringify({ type: "connected", timestamp: new Date().toISOString() })}\n\n`);
+
+  const onNewOrder = (order) => {
+    res.write(`data: ${JSON.stringify({ type: "new_order", order })}\n\n`);
+  };
+
+  const onStatusUpdated = (order) => {
+    res.write(`data: ${JSON.stringify({ type: "status_updated", order })}\n\n`);
+  };
+
+  orderEmitter.on(ORDER_EVENTS.NEW_ORDER, onNewOrder);
+  orderEmitter.on(ORDER_EVENTS.STATUS_UPDATED, onStatusUpdated);
+
+  // Keep-alive heartbeat every 20 seconds
+  const heartbeat = setInterval(() => {
+    res.write(`: ping\n\n`);
+  }, 20000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    orderEmitter.off(ORDER_EVENTS.NEW_ORDER, onNewOrder);
+    orderEmitter.off(ORDER_EVENTS.STATUS_UPDATED, onStatusUpdated);
+  });
 };

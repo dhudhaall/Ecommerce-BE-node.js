@@ -1,20 +1,30 @@
 import prisma from '../../config/db.js';
 import Stripe from "stripe";
 import axios from "axios";
+import { geocodePostalCode, calculateHaversineDistance } from "../zones/zones.controller.js";
+import { broadcastNewOrder } from "../admin/orders/orders.events.js";
 
 export const getCartSummary = async (req, res) => {
   try {
     const { items } = req.body;
 
     if (!items || !items.length) {
-      return res.json({ items: [], totalAmount: 0 });
+      return res.json({ items: [], subtotal: 0, totalAmount: 0 });
     }
 
     let totalAmount = 0;
     const summaryItems = [];
 
     for (const item of items) {
-      const { productId, quantity = 1, size, addons = [] } = item;
+      const productId = item.productId || item.product?.id;
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const sizeId = item.sizeId || (typeof item.size === "object" ? item.size?.id : item.size);
+      const rawAddons = item.addonIds || item.addons || [];
+      const addonIds = Array.isArray(rawAddons)
+        ? rawAddons.map((a) => (typeof a === "object" && a !== null ? a.id : a)).filter(Boolean)
+        : [];
+
+      if (!productId) continue;
 
       const product = await prisma.product.findUnique({
         where: { id: productId },
@@ -24,15 +34,15 @@ export const getCartSummary = async (req, res) => {
 
       let selectedSize = null;
       let basePrice = product.price;
-      if (size && size.id) {
-        const foundSize = product.sizes.find((s) => s.id === size.id);
+      if (sizeId) {
+        const foundSize = product.sizes.find((s) => s.id === sizeId);
         if (foundSize) {
           selectedSize = foundSize;
           basePrice = foundSize.price;
         }
       }
 
-      const selectedAddons = product.addons.filter((a) => addons.includes(a.id));
+      const selectedAddons = product.addons.filter((a) => addonIds.includes(a.id));
       const addonsPrice = selectedAddons.reduce((sum, a) => sum + a.price, 0);
 
       const itemTotal = (basePrice + addonsPrice) * quantity;
@@ -43,7 +53,7 @@ export const getCartSummary = async (req, res) => {
           id: product.id,
           name: product.name,
           price: product.price,
-          image: `${process.env.BASE_URL}${product?.images?.[0]?.url}` || null,
+          image: product?.images?.[0]?.url ? `${process.env.BASE_URL}${product.images[0].url}` : null,
         },
         quantity,
         size: selectedSize
@@ -54,7 +64,7 @@ export const getCartSummary = async (req, res) => {
       });
     }
 
-    return res.json({ items: summaryItems, totalAmount });
+    return res.json({ items: summaryItems, subtotal: totalAmount, totalAmount });
   } catch (error) {
     console.error("Cart Summary Error:", error);
     res.status(500).json({ error: "Failed to calculate cart" });
@@ -78,7 +88,7 @@ export const checkout = async (req, res) => {
       currency = "eur",
     } = req.body;
 
-    // ---- Validation (from old controller) ----
+    // ---- Validation ----
     if (deliveryType === "delivery") {
       if (!shippingAddress?.address) return res.status(400).json({ error: "Address is required" });
       if (!shippingAddress?.city) return res.status(400).json({ error: "City is required" });
@@ -99,7 +109,7 @@ export const checkout = async (req, res) => {
       });
       if (!product) throw new Error("Product not found");
 
-      // SIZE replaces base price (matches getCartSummary — NOT additive)
+      // SIZE replaces base price
       let basePrice = product.price;
       let sizeName = null;
       let sizePrice = null;
@@ -112,7 +122,7 @@ export const checkout = async (req, res) => {
         }
       }
 
-      // ADDONS — only ones that belong to this product
+      // ADDONS
       const selectedAddons = product.addons.filter((a) =>
         (item.addonIds || []).includes(a.id)
       );
@@ -121,7 +131,6 @@ export const checkout = async (req, res) => {
       const itemTotal = (basePrice + addonTotal) * item.quantity;
       subtotal += itemTotal;
 
-      // Snapshot data (from new controller)
       orderItemsData.push({
         productId: product.id,
         name: product.name,
@@ -137,7 +146,35 @@ export const checkout = async (req, res) => {
       });
     }
 
-    const deliveryFee = 0; // TODO: delivery-zone fee
+    let deliveryFee = 0;
+    if (deliveryType === "delivery" && shippingAddress?.postalCode) {
+      const cleanPostalCode = String(shippingAddress.postalCode).trim();
+      const cleanCity = shippingAddress.city ? String(shippingAddress.city).trim() : '';
+
+      const activeZones = await prisma.deliveryZone.findMany({ where: { active: true } });
+      const matchingZone = activeZones.find((z) => {
+        const prefixes = Array.isArray(z.coveredPrefixes) ? z.coveredPrefixes : [];
+        return (
+          z.mainPostalCode === cleanPostalCode ||
+          prefixes.some((p) => cleanPostalCode.startsWith(p) || p.startsWith(cleanPostalCode))
+        );
+      });
+
+      if (matchingZone) {
+        deliveryFee = matchingZone.deliveryFee;
+      } else {
+        const coords = await geocodePostalCode(cleanPostalCode, cleanCity);
+        if (coords) {
+          const RESTAURANT_LAT = parseFloat(process.env.RESTAURANT_LAT) || 48.8566;
+          const RESTAURANT_LNG = parseFloat(process.env.RESTAURANT_LNG) || 2.3522;
+          const distanceKm = calculateHaversineDistance(RESTAURANT_LAT, RESTAURANT_LNG, coords.lat, coords.lng);
+          if (distanceKm <= 2.0) deliveryFee = 2.0;
+          else if (distanceKm <= 5.0) deliveryFee = 4.0;
+          else if (distanceKm <= 10.0) deliveryFee = 7.0;
+        }
+      }
+    }
+
     const totalAmount = subtotal + deliveryFee;
 
     // ---- CREATE ORDER ----
@@ -164,10 +201,11 @@ export const checkout = async (req, res) => {
 
     // ---- 💵 CASH ----
     if (method === "cash") {
+      broadcastNewOrder(order);
       return res.json({ success: true, orderId: order.id, data: order });
     }
 
-    // ---- 💳 STRIPE (this is what fixes your clientSecret error) ----
+    // ---- 💳 STRIPE ----
     if (method === "stripe") {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(totalAmount * 100),
@@ -189,46 +227,82 @@ export const checkout = async (req, res) => {
 
     // ---- 🟡 PAYPAL ----
     if (method === "paypal") {
-      const tokenRes = await axios.post(
-        `${process.env.PAYPAL_BASE_URL}/v1/oauth2/token`,
-        "grant_type=client_credentials",
-        {
-          auth: {
-            username: process.env.PAYPAL_CLIENT_ID,
-            password: process.env.PAYPAL_SECRET,
-          },
+      try {
+        const clientId = (process.env.PAYPAL_CLIENT_ID || "").trim();
+        const secret = (process.env.PAYPAL_SECRET || "").trim();
+        const baseUrl = (process.env.PAYPAL_BASE_URL || "https://api-m.sandbox.paypal.com").trim();
+
+        if (!clientId || !secret) {
+          return res.status(500).json({ error: "PayPal credentials not configured on server" });
         }
-      );
-      const accessToken = tokenRes.data.access_token;
 
-      const orderRes = await axios.post(
-        `${process.env.PAYPAL_BASE_URL}/v2/checkout/orders`,
-        {
-          intent: "CAPTURE",
-          purchase_units: [
-            {
-              reference_id: order.id.toString(),
-              amount: { currency_code: currency.toUpperCase(), value: totalAmount.toFixed(2) },
+        const auth = Buffer.from(`${clientId}:${secret}`).toString("base64");
+
+        const tokenRes = await axios.post(
+          `${baseUrl}/v1/oauth2/token`,
+          "grant_type=client_credentials",
+          {
+            headers: {
+              Authorization: `Basic ${auth}`,
+              "Content-Type": "application/x-www-form-urlencoded",
             },
-          ],
-          application_context: {
-            user_action: "PAY_NOW",
-            return_url: `${process.env.FRONTEND_URL}/checkout/success?orderId=${order.id}`,
-            cancel_url: `${process.env.FRONTEND_URL}/checkout?cancelled=1`,
+          }
+        );
+        const accessToken = tokenRes.data.access_token;
+
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3001";
+
+        const orderRes = await axios.post(
+          `${baseUrl}/v2/checkout/orders`,
+          {
+            intent: "CAPTURE",
+            purchase_units: [
+              {
+                reference_id: order.id.toString(),
+                amount: {
+                  currency_code: currency.toUpperCase(),
+                  value: totalAmount.toFixed(2),
+                },
+              },
+            ],
+            application_context: {
+              user_action: "PAY_NOW",
+              return_url: `${frontendUrl}/success?orderId=${order.id}`,
+              cancel_url: `${frontendUrl}/checkout?cancelled=1`,
+            },
           },
-        },
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
 
-      const paypalOrder = orderRes.data;
+        const paypalOrder = orderRes.data;
 
-      await prisma.order.update({
-        where: { id: order.id },
-        data: { paypalOrderId: paypalOrder.id }, // needs paypalOrderId in schema
-      });
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { paypalOrderId: paypalOrder.id },
+        });
 
-      const approvalUrl = paypalOrder.links.find((l) => l.rel === "approve").href;
-      return res.json({ paymentType: "paypal", approvalUrl, orderId: order.id });
+        const approvalLink = paypalOrder.links.find((l) => l.rel === "approve");
+        const approvalUrl = approvalLink ? approvalLink.href : null;
+
+        return res.json({
+          paymentType: "paypal",
+          paypalOrderId: paypalOrder.id,
+          approvalUrl,
+          orderId: order.id,
+        });
+      } catch (paypalErr) {
+        const errDetail =
+          paypalErr.response?.data?.error_description ||
+          paypalErr.response?.data?.message ||
+          paypalErr.message;
+        console.error("PayPal Order Error:", paypalErr.response?.data || paypalErr.message);
+        return res.status(500).json({ error: `PayPal order creation failed: ${errDetail}` });
+      }
     }
 
     return res.status(400).json({ error: "Unhandled payment method" });

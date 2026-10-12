@@ -15,7 +15,11 @@ export const getCategories = async (req, res, next) => {
 
 export const createCategory = async (req, res, next) => {
   try {
-    const category = await menuService.createCategory(req.body);
+    const data = { ...req.body };
+    if (req.file) {
+      data.image = `/uploads/${req.file.filename}`;
+    }
+    const category = await menuService.createCategory(data);
     res.status(201).json(category);
   } catch (err) {
     next(err);
@@ -24,7 +28,11 @@ export const createCategory = async (req, res, next) => {
 
 export const updateCategory = async (req, res, next) => {
   try {
-    const category = await menuService.updateCategory(req.params.id, req.body);
+    const data = { ...req.body };
+    if (req.file) {
+      data.image = `/uploads/${req.file.filename}`;
+    }
+    const category = await menuService.updateCategory(req.params.id, data);
     res.json(category);
   } catch (err) {
     next(err);

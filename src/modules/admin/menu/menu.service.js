@@ -17,24 +17,31 @@ export const getCategories = async () => {
   return categories.map((c) => ({
     id: c.id,
     name: c.name,
+    image: c.image,
     productCount: c._count.products,
   }));
 };
 
-export const createCategory = async (data) => {
-  const { name } = data;
+export const createCategory = async (data = {}) => {
+  const { name, image } = data;
   if (!name || !name.trim()) throw new Error("Category name is required");
   return prisma.category.create({
-    data: { name: name.trim() },
+    data: {
+      name: name.trim(),
+      image: image || null,
+    },
   });
 };
 
-export const updateCategory = async (id, data) => {
-  const { name } = data;
+export const updateCategory = async (id, data = {}) => {
+  const { name, image } = data;
   if (!name || !name.trim()) throw new Error("Category name is required");
+  const updateData = { name: name.trim() };
+  if (image !== undefined) updateData.image = image;
+
   return prisma.category.update({
     where: { id: Number(id) },
-    data: { name: name.trim() },
+    data: updateData,
   });
 };
 

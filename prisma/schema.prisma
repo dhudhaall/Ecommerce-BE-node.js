@@ -30,6 +30,7 @@ model User {
 model Category {
   id       Int       @id @default(autoincrement())
   name     String
+  image    String?
   products Product[]
 }
 
@@ -107,6 +108,7 @@ model Order {
   paymentStatus  String   @default("pending") // pending, paid, failed
 
   stripeIntentId String?
+  paypalOrderId  String?
 
   // 📊 Pricing
   subtotal       Float

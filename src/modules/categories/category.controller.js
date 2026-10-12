@@ -1,13 +1,9 @@
 import * as categoryService from './category.service.js';
-import { attachProductImagesBaseUrl } from '../../utils/helpers.js';
 
 export const getCategories = async (req, res, next) => {
   try {
     const categories = await categoryService.getCategories();
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-
-    const result = attachProductImagesBaseUrl(categories, baseUrl);
-    res.json(result);
+    res.json(categories);
   } catch (err) {
     next(err);
   }
@@ -15,7 +11,11 @@ export const getCategories = async (req, res, next) => {
 
 export const AddCategory = async (req, res, next) => {
   try {
-    const category = await categoryService.addCategory(req.body);
+    const data = { ...req.body };
+    if (req.file) {
+      data.image = `/uploads/${req.file.filename}`;
+    }
+    const category = await categoryService.addCategory(data);
     res.json(category);
   } catch (err) {
     next(err);
@@ -24,13 +24,16 @@ export const AddCategory = async (req, res, next) => {
 
 export const updateCategory = async (req, res, next) => {
   try {
-    const category = await categoryService.updateCategory(Number(req.params.id), req.body);
+    const data = { ...req.body };
+    if (req.file) {
+      data.image = `/uploads/${req.file.filename}`;
+    }
+    const category = await categoryService.updateCategory(Number(req.params.id), data);
     res.json(category);
   } catch (err) {
     next(err);
   }
 };
-
 
 export const deleteCategory = async (req, res, next) => {
   try {
@@ -40,6 +43,7 @@ export const deleteCategory = async (req, res, next) => {
     next(err);
   }
 };
+
 
 
 

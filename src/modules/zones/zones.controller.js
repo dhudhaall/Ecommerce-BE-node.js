@@ -1,4 +1,47 @@
 import prisma from '../../config/db.js';
+import axios from 'axios';
+
+const RESTAURANT_LAT = parseFloat(process.env.RESTAURANT_LAT) || 48.8566;
+const RESTAURANT_LNG = parseFloat(process.env.RESTAURANT_LNG) || 2.3522;
+
+export function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
+export async function geocodePostalCode(postalCode, city = '') {
+  try {
+    const query = [postalCode, city].filter(Boolean).join(' ');
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'EcommerceApp/1.0 (contact@ecommerce.com)',
+      },
+      timeout: 5000,
+    });
+
+    if (response.data && response.data.length > 0) {
+      const { lat, lon } = response.data[0];
+      return { lat: parseFloat(lat), lng: parseFloat(lon) };
+    }
+    return null;
+  } catch (err) {
+    console.error("Geocoding error:", err.message);
+    return null;
+  }
+}
 
 export const getDeliveryZones = async (req, res) => {
   try {
@@ -16,8 +59,6 @@ export const getDeliveryZones = async (req, res) => {
       orderBy: { areaName: "asc" },
     });
 
-    // coveredPrefixes is a Json column — make sure it always reaches
-    // the frontend as an array, even if a row was saved badly.
     const normalized = zones.map((z) => ({
       ...z,
       coveredPrefixes: Array.isArray(z.coveredPrefixes) ? z.coveredPrefixes : [],
@@ -30,22 +71,6 @@ export const getDeliveryZones = async (req, res) => {
   }
 };
 
-/**
- * POST /delivery-zones
- * Creates a new delivery zone.
- * Body:
- * {
- *   "mainPostalCode": "54810",
- *   "areaName": "Johar Town",
- *   "city": "Lahore",
- *   "deliveryFee": 3.5,          // optional, defaults to 3
- *   "minOrder": 10,              // optional, defaults to 0
- *   "coveredPrefixes": ["5481"], // optional, defaults to [mainPostalCode]
- *   "active": true               // optional, defaults to true
- * }
- * NOTE: protect this route with your admin auth middleware —
- * customers must not be able to create zones.
- */
 export const addDeliveryZone = async (req, res) => {
   try {
     const {
@@ -58,7 +83,6 @@ export const addDeliveryZone = async (req, res) => {
       active = true,
     } = req.body || {};
 
-    // ---- Validation ----
     if (!mainPostalCode || !/^[A-Za-z0-9 -]{3,10}$/.test(String(mainPostalCode).trim())) {
       return res.status(400).json({ error: "A valid mainPostalCode is required." });
     }
@@ -78,8 +102,6 @@ export const addDeliveryZone = async (req, res) => {
       return res.status(400).json({ error: "minOrder must be a number ≥ 0." });
     }
 
-    // Prefixes: optional array of code-prefixes. Default: the main code itself,
-    // so exact matches work even before you add street-level prefixes.
     let prefixes = coveredPrefixes ?? [String(mainPostalCode).trim()];
     if (!Array.isArray(prefixes)) {
       return res.status(400).json({ error: "coveredPrefixes must be an array of strings." });
@@ -91,8 +113,6 @@ export const addDeliveryZone = async (req, res) => {
       });
     }
 
-    // Warn about overlap: a new prefix that collides with an existing zone's
-    // prefixes would make matching ambiguous.
     const existing = await prisma.deliveryZone.findMany({
       select: { id: true, areaName: true, mainPostalCode: true, coveredPrefixes: true },
     });
@@ -109,7 +129,6 @@ export const addDeliveryZone = async (req, res) => {
       });
     }
 
-    // ---- Create ----
     const zone = await prisma.deliveryZone.create({
       data: {
         mainPostalCode: String(mainPostalCode).trim(),
@@ -124,11 +143,102 @@ export const addDeliveryZone = async (req, res) => {
 
     return res.status(201).json({ zone });
   } catch (err) {
-    // Prisma unique-constraint violation on mainPostalCode
     if (err?.code === "P2002") {
       return res.status(409).json({ error: "A zone with this mainPostalCode already exists." });
     }
     console.error("addDeliveryZone error:", err);
     return res.status(500).json({ error: "Could not create the delivery zone." });
+  }
+};
+
+export const calculateDeliveryFee = async (req, res) => {
+  try {
+    const { postalCode, city, address } = req.body || {};
+
+    if (!postalCode || !String(postalCode).trim()) {
+      return res.status(400).json({
+        deliverable: false,
+        deliveryFee: 0,
+        message: "Postal code is required.",
+      });
+    }
+
+    const cleanPostalCode = String(postalCode).trim();
+    const cleanCity = city ? String(city).trim() : '';
+
+    // Check if database has an explicit matching active zone
+    const activeZones = await prisma.deliveryZone.findMany({ where: { active: true } });
+    const matchingZone = activeZones.find((z) => {
+      const prefixes = Array.isArray(z.coveredPrefixes) ? z.coveredPrefixes : [];
+      return (
+        z.mainPostalCode === cleanPostalCode ||
+        prefixes.some((p) => cleanPostalCode.startsWith(p) || p.startsWith(cleanPostalCode))
+      );
+    });
+
+    if (matchingZone) {
+      return res.json({
+        deliverable: true,
+        distanceKm: 0,
+        deliveryFee: matchingZone.deliveryFee,
+        minOrder: matchingZone.minOrder,
+        areaName: matchingZone.areaName,
+        message: `Delivery available for ${matchingZone.areaName}`,
+      });
+    }
+
+    // Dynamic Geocoding + Haversine distance calculation
+    const coords = await geocodePostalCode(cleanPostalCode, cleanCity);
+    if (!coords) {
+      return res.json({
+        deliverable: false,
+        distanceKm: 0,
+        deliveryFee: 0,
+        message: "We do not deliver to your area.",
+      });
+    }
+
+    const distanceKm = calculateHaversineDistance(
+      RESTAURANT_LAT,
+      RESTAURANT_LNG,
+      coords.lat,
+      coords.lng
+    );
+
+    let deliveryFee = 0;
+    let deliverable = true;
+
+    if (distanceKm <= 2.0) {
+      deliveryFee = 2.0;
+    } else if (distanceKm <= 5.0) {
+      deliveryFee = 4.0;
+    } else if (distanceKm <= 10.0) {
+      deliveryFee = 7.0;
+    } else {
+      deliverable = false;
+    }
+
+    if (!deliverable) {
+      return res.json({
+        deliverable: false,
+        distanceKm,
+        deliveryFee: 0,
+        message: `Sorry, we do not deliver to your area (${distanceKm} km away. Maximum delivery radius is 10 km).`,
+      });
+    }
+
+    return res.json({
+      deliverable: true,
+      distanceKm,
+      deliveryFee,
+      message: `Delivery available (${distanceKm} km away)`,
+    });
+  } catch (err) {
+    console.error("calculateDeliveryFee error:", err);
+    return res.status(500).json({
+      deliverable: false,
+      deliveryFee: 0,
+      error: "Could not calculate delivery fee.",
+    });
   }
 };

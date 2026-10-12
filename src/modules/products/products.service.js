@@ -38,37 +38,54 @@ export const addProduct = async (data) => {
     images,
   } = data;
 
+  let parsedSizes = sizes;
+  if (typeof sizes === "string") {
+    try { parsedSizes = JSON.parse(sizes); } catch (e) { parsedSizes = []; }
+  }
+
+  let parsedAddons = addons;
+  if (typeof addons === "string") {
+    try { parsedAddons = JSON.parse(addons); } catch (e) { parsedAddons = []; }
+  }
+
+  let parsedImages = images;
+  if (typeof images === "string") {
+    try { parsedImages = JSON.parse(images); } catch (e) { parsedImages = []; }
+  }
+
+  const isProductActive = !(isActive === "false" || isActive === false);
+
   const productData = {
     name: name?.trim(),
     description: description ? description.trim() : "",
     price: parseFloat(price) || 0,
     categoryId: Number(categoryId),
-    isActive: isActive !== false,
+    isActive: isProductActive,
   };
 
-  if (Array.isArray(sizes) && sizes.length > 0) {
+  if (Array.isArray(parsedSizes) && parsedSizes.length > 0) {
     productData.sizes = {
-      create: sizes.map((s) => ({
+      create: parsedSizes.map((s) => ({
         name: s.name.trim(),
         price: parseFloat(s.price) || 0,
       })),
     };
   }
 
-  if (Array.isArray(addons) && addons.length > 0) {
+  if (Array.isArray(parsedAddons) && parsedAddons.length > 0) {
     productData.addons = {
-      create: addons.map((a) => ({
+      create: parsedAddons.map((a) => ({
         name: a.name.trim(),
         price: parseFloat(a.price) || 0,
       })),
     };
   }
 
-  if (Array.isArray(images) && images.length > 0) {
+  if (Array.isArray(parsedImages) && parsedImages.length > 0) {
     productData.images = {
-      create: images.map((img) => ({
+      create: parsedImages.map((img) => ({
         url: typeof img === "string" ? img : img.url,
-        alt: img.alt || name,
+        alt: (typeof img === "object" && img.alt) ? img.alt : name,
       })),
     };
   }
@@ -94,18 +111,34 @@ export const updateProduct = async (id, data) => {
     isActive,
     sizes,
     addons,
+    images,
   } = data;
+
+  let parsedSizes = sizes;
+  if (typeof sizes === "string") {
+    try { parsedSizes = JSON.parse(sizes); } catch (e) { parsedSizes = undefined; }
+  }
+
+  let parsedAddons = addons;
+  if (typeof addons === "string") {
+    try { parsedAddons = JSON.parse(addons); } catch (e) { parsedAddons = undefined; }
+  }
+
+  let parsedImages = images;
+  if (typeof images === "string") {
+    try { parsedImages = JSON.parse(images); } catch (e) { parsedImages = undefined; }
+  }
 
   const updateData = {};
   if (name !== undefined) updateData.name = name.trim();
   if (description !== undefined) updateData.description = description.trim();
   if (price !== undefined) updateData.price = parseFloat(price);
   if (categoryId !== undefined) updateData.categoryId = Number(categoryId);
-  if (isActive !== undefined) updateData.isActive = Boolean(isActive);
+  if (isActive !== undefined) updateData.isActive = !(isActive === "false" || isActive === false);
 
-  if (Array.isArray(sizes)) {
+  if (Array.isArray(parsedSizes)) {
     await prisma.size.deleteMany({ where: { productId } });
-    const validSizes = sizes
+    const validSizes = parsedSizes
       .filter((s) => s && s.name)
       .map((s) => ({
         name: s.name.trim(),
@@ -117,9 +150,9 @@ export const updateProduct = async (id, data) => {
     }
   }
 
-  if (Array.isArray(addons)) {
+  if (Array.isArray(parsedAddons)) {
     await prisma.addon.deleteMany({ where: { productId } });
-    const validAddons = addons
+    const validAddons = parsedAddons
       .filter((a) => a && a.name)
       .map((a) => ({
         name: a.name.trim(),
@@ -129,6 +162,15 @@ export const updateProduct = async (id, data) => {
     if (validAddons.length > 0) {
       await prisma.addon.createMany({ data: validAddons });
     }
+  }
+
+  if (Array.isArray(parsedImages) && parsedImages.length > 0) {
+    const newImages = parsedImages.map((img) => ({
+      url: typeof img === "string" ? img : img.url,
+      alt: (typeof img === "object" && img.alt) ? img.alt : (name || "Product Image"),
+      productId,
+    }));
+    await prisma.productImage.createMany({ data: newImages });
   }
 
   return prisma.product.update({

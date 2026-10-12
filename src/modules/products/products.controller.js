@@ -25,12 +25,24 @@ export const addProduct = async (req, res, next) => {
   try {
     const body = { ...req.body };
 
-    // If files uploaded via multer
+    let imagesList = [];
+    if (typeof body.images === "string") {
+      try {
+        imagesList = JSON.parse(body.images);
+      } catch (e) {
+        imagesList = [];
+      }
+    } else if (Array.isArray(body.images)) {
+      imagesList = body.images;
+    }
+
     if (req.files && req.files.length > 0) {
-      body.images = req.files.map((file) => ({
+      const uploadedImages = req.files.map((file) => ({
         url: `/uploads/${file.filename}`,
       }));
+      imagesList = [...imagesList, ...uploadedImages];
     }
+    body.images = imagesList;
 
     const product = await productService.addProduct(body);
     res.status(201).json(product);
@@ -42,10 +54,26 @@ export const addProduct = async (req, res, next) => {
 export const updateProduct = async (req, res, next) => {
   try {
     const body = { ...req.body };
+
+    let imagesList = [];
+    if (typeof body.images === "string") {
+      try {
+        imagesList = JSON.parse(body.images);
+      } catch (e) {
+        imagesList = [];
+      }
+    } else if (Array.isArray(body.images)) {
+      imagesList = body.images;
+    }
+
     if (req.files && req.files.length > 0) {
-      body.images = req.files.map((file) => ({
+      const uploadedImages = req.files.map((file) => ({
         url: `/uploads/${file.filename}`,
       }));
+      imagesList = [...imagesList, ...uploadedImages];
+    }
+    if (imagesList.length > 0) {
+      body.images = imagesList;
     }
 
     const product = await productService.updateProduct(Number(req.params.id), body);
@@ -63,3 +91,4 @@ export const deleteProduct = async (req, res, next) => {
     next(err);
   }
 };
+
