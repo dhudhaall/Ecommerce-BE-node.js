@@ -12,7 +12,7 @@ export const getCategories = () => {
         },
       },
     },
-    orderBy: { id: "asc" },
+    orderBy: [{ order: "asc" }, { id: "asc" }],
   });
 };
 

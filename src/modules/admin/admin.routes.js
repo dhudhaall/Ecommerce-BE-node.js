@@ -20,6 +20,7 @@ router.get("/sales", requireAdmin, getSalesStats);
 /* ---------------- Menu: Categories ---------------- */
 router.get("/categories", requireAdmin, menuController.getCategories);
 router.post("/categories", requireAdmin, upload.single("image"), menuController.createCategory);
+router.put("/categories/reorder", requireAdmin, menuController.reorderCategories);
 router.put("/categories/:id", requireAdmin, upload.single("image"), menuController.updateCategory);
 router.delete("/categories/:id", requireAdmin, menuController.deleteCategory);
 

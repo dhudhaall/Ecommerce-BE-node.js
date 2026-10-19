@@ -1,8 +1,56 @@
 import { PrismaClient } from '@prisma/client';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const prisma = new PrismaClient();
+
+async function fetchMenuData() {
+  const jsonPath = path.join(__dirname, 'scraped_menu.json');
+  if (fs.existsSync(jsonPath)) {
+    console.log("📄 Loading menu from scraped_menu.json...");
+    const raw = fs.readFileSync(jsonPath, 'utf-8');
+    return JSON.parse(raw);
+  }
+
+  // Fallback to fetch if JSON file is not present
+  try {
+    const url = 'https://www.lieferando.de/en/menu/pizzeria-con-amore';
+    const { data: html } = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    const $ = cheerio.load(html);
+    const categories = [];
+    $('.menu-category').each((_, catElem) => {
+      const catName = $(catElem).find('.category-title').text().trim();
+      const products = [];
+      $(catElem).find('.menu-item').each((_, itemElem) => {
+        const name = $(itemElem).find('.item-name').text().trim();
+        const description = $(itemElem).find('.item-description').text().trim();
+        const priceText = $(itemElem).find('.price').text().trim();
+        const price = parseFloat(priceText.replace(/[€,]/g, ''));
+        products.push({ name, description, price, sizes: [], addons: [] });
+      });
+      categories.push({ name: catName, products });
+    });
+    return { categories };
+  } catch (err) {
+    console.warn("⚠️ Direct fetch failed (likely Cloudflare):", err.message);
+    throw err;
+  }
+}
 
 async function main() {
   console.log("🌱 Seeding started...");
+
+  // Fetch Lieferando menu data
+  const menuData = await fetchMenuData();
 
   // 🧹 Clean DB (order matters because of FK)
   await prisma.productImage.deleteMany();
@@ -12,120 +60,47 @@ async function main() {
   await prisma.category.deleteMany();
 
   // =========================
-  // 📂 CATEGORIES
+  // 📂 CATEGORIES & PRODUCTS (with Sizes, Addons, Images)
   // =========================
-  const burgers = await prisma.category.create({
-    data: { name: "Burgers" },
-  });
-
-  const pizza = await prisma.category.create({
-    data: { name: "Pizza" },
-  });
-
-  const drinks = await prisma.category.create({
-    data: { name: "Drinks" },
-  });
-
-  // =========================
-  // 🍔 PRODUCTS
-  // =========================
-  const zinger = await prisma.product.create({
-    data: {
-      name: "Zinger Burger",
-      description: "Crispy chicken burger",
-      price: 8.99,
-      categoryId: burgers.id,
-    },
-  });
-
-  const beef = await prisma.product.create({
-    data: {
-      name: "Beef Burger",
-      description: "Juicy beef burger",
-      price: 9.99,
-      categoryId: burgers.id,
-    },
-  });
-
-  const margherita = await prisma.product.create({
-    data: {
-      name: "Margherita Pizza",
-      description: "Classic cheese pizza",
-      price: 12.5,
-      categoryId: pizza.id,
-    },
-  });
-
-  const pepperoni = await prisma.product.create({
-    data: {
-      name: "Pepperoni Pizza",
-      description: "Pepperoni loaded pizza",
-      price: 14,
-      categoryId: pizza.id,
-    },
-  });
-
-  const coke = await prisma.product.create({
-    data: {
-      name: "Coke",
-      description: "Chilled soft drink",
-      price: 2.5,
-      categoryId: drinks.id,
-    },
-  });
-
-  // =========================
-  // 📏 SIZES
-  // =========================
-  await prisma.size.createMany({
-    data: [
-      { name: "Regular", price: 0, productId: zinger.id },
-      { name: "Large", price: 2, productId: zinger.id },
-
-      { name: "Regular", price: 0, productId: beef.id },
-      { name: "Large", price: 2.5, productId: beef.id },
-
-      { name: "Small", price: 0, productId: margherita.id },
-      { name: "Medium", price: 3, productId: margherita.id },
-      { name: "Large", price: 5, productId: margherita.id },
-
-      { name: "Small", price: 0, productId: pepperoni.id },
-      { name: "Medium", price: 3, productId: pepperoni.id },
-      { name: "Large", price: 5, productId: pepperoni.id },
-    ],
-  });
-
-  // =========================
-  // ➕ ADDONS
-  // =========================
-  await prisma.addon.createMany({
-    data: [
-      { name: "Extra Cheese", price: 1.5, productId: zinger.id },
-      { name: "Mayo Sauce", price: 0.5, productId: zinger.id },
-      { name: "Fries", price: 2.0, productId: zinger.id },
-
-      { name: "Cheddar Cheese", price: 1.5, productId: beef.id },
-      { name: "BBQ Sauce", price: 0.7, productId: beef.id },
-
-      { name: "Extra Cheese", price: 2.0, productId: margherita.id },
-      { name: "Olives", price: 1.2, productId: margherita.id },
-
-      { name: "Mushrooms", price: 1.5, productId: pepperoni.id },
-    ],
-  });
-
-  // =========================
-  // 🖼 IMAGES
-  // =========================
-  await prisma.productImage.createMany({
-    data: [
-      { url: "https://via.placeholder.com/300?text=Zinger", productId: zinger.id },
-      { url: "https://via.placeholder.com/300?text=Beef", productId: beef.id },
-      { url: "https://via.placeholder.com/300?text=Pizza", productId: margherita.id },
-      { url: "https://via.placeholder.com/300?text=Pepperoni", productId: pepperoni.id },
-      { url: "https://via.placeholder.com/300?text=Coke", productId: coke.id },
-    ],
-  });
+  let orderIdx = 0;
+  for (const cat of menuData.categories) {
+    await prisma.category.create({
+      data: {
+        name: cat.name,
+        image: cat.image || null,
+        order: cat.order ?? orderIdx++,
+        products: {
+          create: cat.products.map((prod) => ({
+            name: prod.name,
+            description: prod.description || '',
+            price: prod.price,
+            sizes: {
+              create: (prod.sizes || []).map((sz) => ({
+                name: sz.name,
+                price: sz.price,
+              })),
+            },
+            addons: {
+              create: (prod.addons || []).map((ad) => ({
+                name: ad.name,
+                price: ad.price,
+              })),
+            },
+            images: {
+              create: [
+                {
+                  url:
+                    cat.image ||
+                    'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=60',
+                },
+              ],
+            },
+          })),
+        },
+      },
+    });
+    console.log(`  ✅ Created category "${cat.name}" with ${cat.products.length} products`);
+  }
 
   console.log("✅ Seeding completed!");
 }

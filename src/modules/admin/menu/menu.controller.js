@@ -48,6 +48,16 @@ export const deleteCategory = async (req, res, next) => {
   }
 };
 
+export const reorderCategories = async (req, res, next) => {
+  try {
+    const { orderedIds } = req.body;
+    await menuService.reorderCategories(orderedIds);
+    res.json({ message: "Categories reordered successfully." });
+  } catch (err) {
+    next(err);
+  }
+};
+
 /* =========================================================
    PRODUCTS
 ========================================================= */

@@ -11,16 +11,34 @@ export const getCategories = async () => {
         select: { products: true },
       },
     },
-    orderBy: { id: "asc" },
+    orderBy: [{ order: "asc" }, { id: "asc" }],
   });
 
   return categories.map((c) => ({
     id: c.id,
     name: c.name,
     image: c.image,
+    order: c.order ?? 0,
     productCount: c._count.products,
   }));
 };
+
+export const reorderCategories = async (orderedIds = []) => {
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    throw new Error("orderedIds must be a non-empty array of category IDs");
+  }
+
+  const updates = orderedIds.map((id, index) =>
+    prisma.category.update({
+      where: { id: Number(id) },
+      data: { order: index },
+    })
+  );
+
+  await prisma.$transaction(updates);
+  return { success: true };
+};
+
 
 export const createCategory = async (data = {}) => {
   const { name, image } = data;
