@@ -24,8 +24,8 @@ const run = async () => {
   });
 
   console.log("✅ Admin user ready!");
-  console.log("   Email:", admin.email);
-  console.log("   Password:", rawPassword);
+  console.log("Email:", admin.email);
+  console.log(" Password:", rawPassword);
 };
 
 run()
