@@ -29,6 +29,14 @@ app.use(
 app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/uploads", express.static("uploads"));
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Pizzeria Con Amore Backend running 🚀' });
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
+
 app.get('/api', (req, res) => {
   res.send('API running 🚀');
 });
