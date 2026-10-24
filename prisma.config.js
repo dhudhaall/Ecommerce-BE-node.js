@@ -5,16 +5,16 @@ import "dotenv/config";
 import { defineConfig, env } from "prisma/config";
 
 const getDatabaseUrl = () => {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
   const pass = process.env.DB_PASSWORD || process.env.DB_PASS;
   if (process.env.DB_HOST && process.env.DB_USER && pass) {
     const user = encodeURIComponent(process.env.DB_USER.trim());
     const encodedPass = encodeURIComponent(pass.trim());
-    const host = process.env.DB_HOST || 'localhost';
+    const host = process.env.DB_HOST.trim();
     const port = process.env.DB_PORT || 3306;
-    const db = process.env.DB_NAME || '';
+    const db = (process.env.DB_NAME || '').trim();
     return `mysql://${user}:${encodedPass}@${host}:${port}/${db}`;
   }
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
   return "mysql://placeholder:placeholder@localhost:3306/placeholder";
 };
 

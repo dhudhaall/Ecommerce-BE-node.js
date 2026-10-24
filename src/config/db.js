@@ -1,13 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 
-const dbPass = process.env.DB_PASSWORD || process.env.DB_PASS;
-if (!process.env.DATABASE_URL && process.env.DB_USER && dbPass) {
+const pass = process.env.DB_PASSWORD || process.env.DB_PASS;
+if (process.env.DB_HOST && process.env.DB_USER && pass) {
   const user = encodeURIComponent(process.env.DB_USER.trim());
-  const pass = encodeURIComponent(dbPass.trim());
-  const host = process.env.DB_HOST || 'localhost';
+  const encodedPass = encodeURIComponent(pass.trim());
+  const host = process.env.DB_HOST.trim();
   const port = process.env.DB_PORT || 3306;
-  const db = process.env.DB_NAME || '';
-  process.env.DATABASE_URL = `mysql://${user}:${pass}@${host}:${port}/${db}`;
+  const db = (process.env.DB_NAME || '').trim();
+  process.env.DATABASE_URL = `mysql://${user}:${encodedPass}@${host}:${port}/${db}`;
 }
 
 const prisma = new PrismaClient();
