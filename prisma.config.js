@@ -11,6 +11,6 @@ export default defineConfig({
   },
   engine: "classic",
   datasource: {
-    url: process.env.DATABASE_URL || "mysql://placeholder:placeholder@localhost:3306/placeholder",
+    url: process.env.DATABASE_URL || "mysql://PizzeriaConAmore:4FB}WHc)!CzcIkN!@sxb1plzcpnl507414.prod.sxb1.secureserver.net:2083/PizzeriaConAmore",
   },
 });
