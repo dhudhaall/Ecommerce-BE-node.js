@@ -4,6 +4,20 @@
 import "dotenv/config";
 import { defineConfig, env } from "prisma/config";
 
+const getDatabaseUrl = () => {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  const pass = process.env.DB_PASSWORD || process.env.DB_PASS;
+  if (process.env.DB_HOST && process.env.DB_USER && pass) {
+    const user = encodeURIComponent(process.env.DB_USER.trim());
+    const encodedPass = encodeURIComponent(pass.trim());
+    const host = process.env.DB_HOST || 'localhost';
+    const port = process.env.DB_PORT || 3306;
+    const db = process.env.DB_NAME || '';
+    return `mysql://${user}:${encodedPass}@${host}:${port}/${db}`;
+  }
+  return "mysql://placeholder:placeholder@localhost:3306/placeholder";
+};
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -11,6 +25,6 @@ export default defineConfig({
   },
   engine: "classic",
   datasource: {
-    url: process.env.DATABASE_URL || "mysql://PizzeriaConAmore:4FB}WHc)!CzcIkN!@sxb1plzcpnl507414.prod.sxb1.secureserver.net:2083/PizzeriaConAmore",
+    url: getDatabaseUrl(),
   },
 });
