@@ -11,6 +11,7 @@ import { stripeWebhook } from "./modules/checkout/stripe.webhook.js";
 import path from 'path';
 import cors from "cors";
 import { execSync } from 'child_process';
+import mysql from 'mysql2/promise';
 import prisma from './config/db.js';
 const app = express();
 
@@ -41,6 +42,38 @@ app.get('/health', (req, res) => {
 
 app.get('/api', (req, res) => {
   res.send('API running 🚀');
+});
+
+app.get('/api/db-debug', async (req, res) => {
+  const envInfo = {
+    DB_HOST: process.env.DB_HOST || '(not set)',
+    DB_PORT: process.env.DB_PORT || '(not set)',
+    DB_NAME: process.env.DB_NAME || '(not set)',
+    DB_USER: process.env.DB_USER || '(not set)',
+    HAS_DB_PASSWORD: !!process.env.DB_PASSWORD,
+    HAS_DB_PASS: !!process.env.DB_PASS,
+    HAS_DATABASE_URL: !!process.env.DATABASE_URL,
+    DATABASE_URL_MASKED: process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:@]+@/, ':***@') : '(not set)',
+  };
+
+  let mysqlTest = null;
+  try {
+    const connection = await mysql.createConnection({
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT || '3306'),
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD || process.env.DB_PASS,
+      database: process.env.DB_NAME,
+      connectTimeout: 5000,
+    });
+    const [rows] = await connection.query('SELECT 1 as test');
+    await connection.end();
+    mysqlTest = { success: true, rows };
+  } catch (err) {
+    mysqlTest = { success: false, error: err.message, code: err.code };
+  }
+
+  res.json({ envInfo, mysqlTest });
 });
 
 app.get('/api/init-db', async (req, res) => {
