@@ -10,6 +10,8 @@ import { swaggerUi, swaggerSpec } from './config/swagger.js';
 import { stripeWebhook } from "./modules/checkout/stripe.webhook.js";
 import path from 'path';
 import cors from "cors";
+import { execSync } from 'child_process';
+import prisma from './config/db.js';
 const app = express();
 
 app.post(
@@ -39,6 +41,39 @@ app.get('/health', (req, res) => {
 
 app.get('/api', (req, res) => {
   res.send('API running 🚀');
+});
+
+app.get('/api/init-db', async (req, res) => {
+  try {
+    const pushOutput = execSync('npx prisma db push --skip-generate --accept-data-loss', {
+      encoding: 'utf-8',
+      env: process.env,
+    });
+
+    let seedOutput = 'Skipped (already seeded)';
+    const catCount = await prisma.category.count();
+    if (catCount === 0) {
+      seedOutput = execSync('node prisma/seed.js', {
+        encoding: 'utf-8',
+        env: process.env,
+      });
+    }
+
+    const categories = await prisma.category.findMany();
+    res.json({
+      success: true,
+      message: 'Database schema pushed and initialized!',
+      categoriesCount: categories.length,
+      pushOutput,
+      seedOutput,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stderr: error.stderr ? error.stderr.toString() : undefined,
+    });
+  }
 });
 
 app.use('/api/users', userRoutes);
