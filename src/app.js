@@ -35,7 +35,12 @@ app.use("/uploads", express.static("uploads"));
 app.get('/', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Pizzeria Con Amore Backend running 🚀' });
 });
-
+app.post('/', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Pizzeria Con Amore Backend running 🚀' });
+});
+app.put('/', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Pizzeria Con Amore Backend running 🚀' });
+});
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
 });
