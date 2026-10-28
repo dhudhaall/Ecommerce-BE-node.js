@@ -22,8 +22,13 @@ export function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
 
 export async function geocodePostalCode(postalCode, city = '') {
   try {
-    const query = [postalCode, city].filter(Boolean).join(' ');
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+    const cleanPc = String(postalCode || '').trim();
+    if (cleanPc === '77767') {
+      return { lat: RESTAURANT_LAT, lng: RESTAURANT_LNG };
+    }
+
+    const query = [cleanPc, city].filter(Boolean).join(' ');
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=de&format=json&limit=1`;
 
     const response = await axios.get(url, {
       headers: {
@@ -214,6 +219,10 @@ export const calculateDeliveryFee = async (req, res) => {
       deliveryFee = 4.0;
     } else if (distanceKm <= 10.0) {
       deliveryFee = 7.0;
+    } else if (distanceKm <= 15.0) {
+      deliveryFee = 10.0;
+    } else if (distanceKm <= 20.0) {
+      deliveryFee = 14.0;
     } else {
       deliverable = false;
     }
@@ -223,7 +232,7 @@ export const calculateDeliveryFee = async (req, res) => {
         deliverable: false,
         distanceKm,
         deliveryFee: 0,
-        message: `Sorry, we do not deliver to your area (${distanceKm} km away. Maximum delivery radius is 10 km).`,
+        message: `Sorry, we do not deliver to your area (${distanceKm} km away. Maximum delivery radius is 20 km).`,
       });
     }
 

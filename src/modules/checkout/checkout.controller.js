@@ -171,6 +171,8 @@ export const checkout = async (req, res) => {
           if (distanceKm <= 2.0) deliveryFee = 2.0;
           else if (distanceKm <= 5.0) deliveryFee = 4.0;
           else if (distanceKm <= 10.0) deliveryFee = 7.0;
+          else if (distanceKm <= 15.0) deliveryFee = 10.0;
+          else if (distanceKm <= 20.0) deliveryFee = 14.0;
         }
       }
     }
