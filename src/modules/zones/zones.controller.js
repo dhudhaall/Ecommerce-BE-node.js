@@ -1,8 +1,8 @@
 import prisma from '../../config/db.js';
 import axios from 'axios';
 
-const RESTAURANT_LAT = parseFloat(process.env.RESTAURANT_LAT) || 48.8566;
-const RESTAURANT_LNG = parseFloat(process.env.RESTAURANT_LNG) || 2.3522;
+const RESTAURANT_LAT = parseFloat(process.env.RESTAURANT_LAT) || 48.5570332;
+const RESTAURANT_LNG = parseFloat(process.env.RESTAURANT_LNG) || 7.9742916;
 
 export function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; // Earth radius in km

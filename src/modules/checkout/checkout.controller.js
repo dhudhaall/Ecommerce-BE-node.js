@@ -165,8 +165,8 @@ export const checkout = async (req, res) => {
       } else {
         const coords = await geocodePostalCode(cleanPostalCode, cleanCity);
         if (coords) {
-          const RESTAURANT_LAT = parseFloat(process.env.RESTAURANT_LAT) || 48.8566;
-          const RESTAURANT_LNG = parseFloat(process.env.RESTAURANT_LNG) || 2.3522;
+          const RESTAURANT_LAT = parseFloat(process.env.RESTAURANT_LAT) || 48.5570332;
+          const RESTAURANT_LNG = parseFloat(process.env.RESTAURANT_LNG) || 7.9742916;
           const distanceKm = calculateHaversineDistance(RESTAURANT_LAT, RESTAURANT_LNG, coords.lat, coords.lng);
           if (distanceKm <= 2.0) deliveryFee = 2.0;
           else if (distanceKm <= 5.0) deliveryFee = 4.0;
